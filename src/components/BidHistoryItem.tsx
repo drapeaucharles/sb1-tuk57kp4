@@ -2,8 +2,8 @@ import React from 'react';
 import { Calendar, MapPin, DollarSign } from 'lucide-react';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
-
-type BidStatus = 'leading' | 'outbid' | 'won' | 'lost' | 'canceled';
+import { BidStatus } from '../lib/bids';
+import { cancelBidAndRefund } from '../lib/bids';
 
 interface BidHistoryItemProps {
   id: string;
@@ -17,6 +17,7 @@ interface BidHistoryItemProps {
   totalBid: number;
   depositAmount: number;
   status: BidStatus;
+  onStatusChange?: (id: string, newStatus: BidStatus) => void;
 }
 
 const BidHistoryItem: React.FC<BidHistoryItemProps> = ({
@@ -27,27 +28,40 @@ const BidHistoryItem: React.FC<BidHistoryItemProps> = ({
   dates,
   totalBid,
   depositAmount,
-  status
+  status,
+  onStatusChange
 }) => {
   const getBadgeVariant = (): 'success' | 'warning' | 'danger' | 'default' => {
     switch (status) {
-      case 'leading': return 'success';
-      case 'outbid': return 'warning';
+      case 'active': return 'success';
+      case 'over_bid': return 'warning';
       case 'won': return 'success';
-      case 'lost': return 'danger';
       case 'canceled': return 'default';
+      case 'confirmed': return 'success';
       default: return 'default';
     }
   };
   
   const getStatusText = (): string => {
     switch (status) {
-      case 'leading': return 'Leading Bid';
-      case 'outbid': return 'Outbid';
-      case 'won': return 'Reservation Won';
-      case 'lost': return 'Reservation Lost';
-      case 'canceled': return 'Listing Canceled';
+      case 'active': return 'Active Bid';
+      case 'over_bid': return 'Outbid';
+      case 'won': return 'Won';
+      case 'canceled': return 'Canceled';
+      case 'confirmed': return 'Confirmed';
       default: return 'Unknown';
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      await cancelBidAndRefund(id);
+      if (onStatusChange) {
+        onStatusChange(id, 'canceled');
+      }
+    } catch (error) {
+      console.error('Failed to cancel bid:', error);
+      alert('Failed to cancel bid. Please try again.');
     }
   };
 
@@ -107,14 +121,23 @@ const BidHistoryItem: React.FC<BidHistoryItemProps> = ({
             </div>
             
             <div className="flex flex-col gap-2 md:min-w-36">
-              {status === 'leading' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.location.href = `/property/${id}`}
-                >
-                  Increase Bid
-                </Button>
+              {status === 'active' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.location.href = `/property/${id}`}
+                  >
+                    Increase Bid
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleCancel}
+                  >
+                    Cancel Bid
+                  </Button>
+                </>
               )}
               
               <Button
